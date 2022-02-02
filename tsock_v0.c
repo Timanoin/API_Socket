@@ -21,6 +21,7 @@ données du réseau */
 #define NOM_POSTE_DEST localhost
 #define LG_MESSAGE_DEF 30
 #define NB_MESSAGES_DEF 30
+#define TAILLE_MAX 500
 
 // Construit un message en répétant lg-5 fois un motif
 void construire_message (char *message, char motif, int lg, int numero);
@@ -254,22 +255,21 @@ void comm_puits(int port, int udp, int lg, int nb)
 	}
 
 	// Reception et affichage des messages
-	char* message;
-	memset(message, 0, lg);
+	char message[TAILLE_MAX];
+	memset(message, 0, lg*sizeof(char));
 
-	struct sockaddr* padr_em;
-	memset(padr_em, 0, sizeof(struct sockaddr));
+	struct sockaddr padr_em;
 
-	int* plg_adr_em;
-	memset(plg_adr_em, 0, sizeof(int));
+	int plg_adr_em;
 
+	printf("Erreur :)\n");
 	if (udp)
 	{
 		// UDP
 		int i;
 		for (i=0; i<nb; i++)
 		{
-			recvfrom(sock, message, lg, 0, padr_em, plg_adr_em);
+			recvfrom(sock, message, lg, 0, &padr_em, &plg_adr_em);
 			afficher_message(message, lg);
 		}
 	}
@@ -277,7 +277,6 @@ void comm_puits(int port, int udp, int lg, int nb)
 	{
 		// TCP
 	}
-
 	close(sock);
 
 }
