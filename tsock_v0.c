@@ -129,8 +129,10 @@ void main (int argc, char **argv)
 // Construit un message en répétant lg-5 fois un motif
 void construire_message (char *message, char motif, int lg, int numero) 
 {
+	// Construction du numero de message
 	
 
+	// Construction de la suite de motifs
 	int i;
 	for (i=0 ; i<lg; i++) message[i] = motif; 
 }
@@ -138,7 +140,7 @@ void construire_message (char *message, char motif, int lg, int numero)
 void afficher_message (char *message, int lg) {
 	int i;
 	printf("message construit : ");
-	for (i=5 ; i<lg ; i++) 
+	for (i=0 ; i<lg ; i++) 
 	{
 		printf("%c", message[i]) ; 
 		printf("\n");
@@ -170,33 +172,43 @@ void source(char* nom_dest, int port, int udp, int lg, int nb)
 
 	if (sock == -1)
 	{
-		printf("Erreur lors de la création du socket");
+		printf("Erreur lors de la création du socket\n");
 		exit(1);
 	}
 
 	// Création de l'adresse distante
-	memset((char*)&adr_local, 0, sizeof(adr_local))
-	adr_dest.sin_family = AF_INET
-	adr_dest.sin_port = argv[argc-1]
-	adr_dest.sin_addr.s_addr = gethostbyname(argv[argc-2])->h_addr_list[0]
+	memset((char*)&adr_dest, 0, sizeof(adr_dest));
+	adr_dest.sin_family = AF_INET;
+	adr_dest.sin_port = argv[argc-1];
+	adr_dest.sin_addr.s_addr = gethostbyname(argv[argc-2])->h_addr_list[0];
 	if (adr_dest.sin_addr.s_addr == NULL)
 	{
-		printf("Erreur lors de la détermination de l'IP de destination");
+		printf("Erreur lors de la détermination de l'IP de destination\n");
 		exit(1);
 	}
 
 	// Envoi des messages
 	char* message;
+	char motif;
 	memset(message, 0, lg)
 	if (udp)
 	{
 		// UDP
-		sendto(sock, message, lg, 0, (struct sockaddr *)&adr_local, sizeof(adr_local));
+		int i;
+		for (i=0; i<nb; i++)
+		{
+			motif = (char)((int)'a' + i % 26);
+			construire_message(message, motif,lg, i+1); 
+			sendto(sock, message, lg, 0, (struct sockaddr *)&adr_dest, sizeof(adr_dest));
+		}
 	}
 	else
 	{
 		// TCP
 	}
+
+	close(sock);
+}
 
 
 
@@ -205,5 +217,72 @@ void source(char* nom_dest, int port, int udp, int lg, int nb)
 // udp : 0=tcp, 1=udp
 // lg : longueur du message
 // nb : nombre de messages
-void puits(char* nom_dest, int port, int udp, int lg, int nb);
+void puits(char* nom_dest, int port, int udp, int lg, int nb)
+{
+	int sock;
+	struct sockaddr_in adr_local;
+
+	// Construction du socket
+	if (udp)
+	{	
+		// UDP		
+		sock = socket(AF_INET, SOCK_DGRAM, 0);
+	}
+	else
+	{
+		// TCP
+		sock = socket(AF_INET, SOCK_STREAM, 0);
+	}
+
+	if (sock == -1)
+	{
+		printf("Erreur lors de la création du socket\n");
+		exit(1);
+	}
+
+	// Création de l'adresse locale
+	memset((char*)&adr_local, 0, sizeof(adr_local));
+	adr_dest.sin_family = AF_INET;
+	adr_dest.sin_port = argv[argc-1];
+	adr_dest.sin_addr.s_addr = INADDR_ANY;
+	if (adr_dest.sin_addr.s_addr == NULL)
+	{
+		printf("Erreur lors de la détermination de l'IP de destination\n");
+		exit(1);
+	}
+
+	if(bind(sock, (struct sockaddr*)&adr_local, sizeof(adr_local)) == -1)
+	{
+		printf("Echec du bind\n");
+		exit(1);
+	}
+
+	// Reception et affichage des messages
+	char* message;
+	memset(message, 0, lg);
+
+	struct sockaddr* padr_em;
+	memset(padr_em, 0, sizeof(struct sockaddr));
+
+	int* plg_adr_em;
+	memset(plg_adr_mem, 0, sizeof(int));
+
+	if (udp)
+	{
+		// UDP
+		int i;
+		for (i=0; i<nb; i++)
+		{
+			recvfrom(sock, message, lg, 0, padr_em, plg_adr_mem);
+			afficher_message(message, lg);
+		}
+	}
+	else
+	{
+		// TCP
+	}
+
+	close(sock);
+
+}
 
