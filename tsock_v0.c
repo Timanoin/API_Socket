@@ -28,7 +28,11 @@ données du réseau */
 // Construit un message en répétant lg-5 fois un motif
 void construire_message (char *message, char motif, int lg, int numero);
 
-void afficher_message (char *message, int lg);
+// Affichage en mode puits
+void afficher_message_puits (char *message, int lg, int numero);
+
+// Affichage en mode source
+void afficher_message_source (char *message, int lg, int numero);
 
 // Crée un socket qui agit en temps que source
 // nom_dest : le nom du poste destinataire
@@ -111,22 +115,7 @@ void main (int argc, char **argv)
 		comm_puits(atoi(argv[argc-1]), udp, lg_message, nb_messages);	
 	}
 
-	if (nb_message != -1) 
-	{
-		if (source == 1)
-			printf("nb de tampons à envoyer : %d\n", nb_message);
-		else
-			printf("nb de tampons à recevoir : %d\n", nb_message);
-	} 
-	else 
-	{
-		if (source == 1) 
-		{
-			nb_message = 10 ;
-			printf("nb de tampons à envoyer = 10 par défaut\n");
-		} 
-		else printf("nb de tampons à envoyer = infini\n");
-	}
+	exit(0);
 }
 
 
@@ -170,14 +159,26 @@ void construire_message (char *message, char motif, int lg, int numero)
 	}
 }
 
-void afficher_message (char *message, int lg) {
+// Affichage en mode puits
+void afficher_message_puits (char *message, int lg, int numero) {
 	int i;
-	printf("message construit : ");
+	printf("PUITS : Reception n°%d (%d) [", numero, lg);
 	for (i=0 ; i<lg ; i++) 
 	{
 		printf("%c", message[i]) ; 
 	}
-	printf("\n");
+	printf("]\n");
+}
+
+// Affichage en mode source
+void afficher_message_source (char *message, int lg, int numero) {
+	int i;
+	printf("SOURCE : Envoi n°%d (%d) [", numero, lg);
+	for (i=0 ; i<lg ; i++) 
+	{
+		printf("%c", message[i]) ; 
+	}
+	printf("]\n");
 }
 
 // Crée un socket qui agit en temps que source
@@ -237,6 +238,7 @@ void comm_source(char* nom_dest, int port, int udp, int lg, int nb)
 			motif = (char)((int)'a' + i % 26);
 			construire_message(message, motif,lg, i+1); 
 			sendto(sock, message, lg, 0, (struct sockaddr *)&adr_dest, sizeof(adr_dest));
+			afficher_message_source(message, lg, i);
 		}
 	}
 	else
@@ -294,10 +296,8 @@ void comm_puits(int port, int udp, int lg, int nb)
 	memset(message, 0, lg*sizeof(char));
 
 	struct sockaddr padr_em;
-
 	int plg_adr_em;
 
-	printf("Erreur :)\n");
 	if (udp)
 	{
 		// UDP
@@ -305,7 +305,7 @@ void comm_puits(int port, int udp, int lg, int nb)
 		for (i=0; i<nb; i++)
 		{
 			recvfrom(sock, message, lg, 0, &padr_em, &plg_adr_em);
-			afficher_message(message, lg);
+			afficher_message_puits(message, lg, i);
 		}
 	}
 	else

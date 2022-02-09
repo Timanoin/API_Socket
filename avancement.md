@@ -7,23 +7,23 @@ L'objectif principal de la 1ère séance est de développer la v1 de tsock: code
 ### Avancement sur la partie SOURCE UDP
 veuillez cocher les seules cases qui correspondent aux étapes validées.  
 
-[ ] la gestion des options -s, -u,  le nombre et Taille par défaut des messages , nom de la machine destinataire,  numéro de port du puit est opérationnelle
+[X] la gestion des options -s, -u,  le nombre et Taille par défaut des messages , nom de la machine destinataire,  numéro de port du puit est opérationnelle
 
-[ ] la création du socket UDP local et la construction de l'adresse du socket distant est correcte
+[X] la création du socket UDP local et la construction de l'adresse du socket distant est correcte
 
-[ ] l’envoi de  messages en utilisant l'appel système sendto (qui retourne une valeur >0 correspondant à la taille de chaque message envoyé) est fonctionnelle 
+[X] l’envoi de  messages en utilisant l'appel système sendto (qui retourne une valeur >0 correspondant à la taille de chaque message envoyé) est fonctionnelle 
 
-[ ] la réception côté puit (sur nc ou la version "enseignant" de tsock) des messages envoyés par votre client est correcte
+[X] la réception côté puit (sur nc ou la version "enseignant" de tsock) des messages envoyés par votre client est correcte
 
 ### Avancement Point sur la partie puit UDP.
 
-[ ] la prise en compte de l' option -p est correcte
+[X] la prise en compte de l' option -p est correcte
 
-[ ] la création du socket UDP local du puit et la construction de son adresse est correcte
+[X] la création du socket UDP local du puit et la construction de son adresse est correcte
 
-[ ] la réception et l'affichage des messages reçus sont corrects
+[X] la réception et l'affichage des messages reçus sont corrects
 
-[ ] l'échange de messages tq décrits dans le cahier des charges entre vos versions source et puit de la version 1 de "tsock" est opérationnel
+[X] l'échange de messages tq décrits dans le cahier des charges entre vos versions source et puit de la version 1 de "tsock" est opérationnel
 
 ## Avancement sur la version 2 de tsock
 La version 2 intègre l’utilisation de TCP pour l’échange des messages. Veuillez renseigner les étapes que vous avez traitées.  
