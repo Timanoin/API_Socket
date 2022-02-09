@@ -23,6 +23,8 @@ données du réseau */
 #define NB_MESSAGES_DEF 30
 #define TAILLE_MAX 500
 
+
+
 // Construit un message en répétant lg-5 fois un motif
 void construire_message (char *message, char motif, int lg, int numero);
 
@@ -127,12 +129,45 @@ void main (int argc, char **argv)
 	}
 }
 
+
+
+// FONCTIONS
+
+// Retourne la longueur d'un nombre (nombre de caractères nécessaires à son écriture)
+int longueur_nombre(int nombre)
+{
+	int lg = 0;
+	while (nombre != 0)
+	{
+		nombre /= 10;
+		lg++;
+	}
+
+	return lg;
+}
+
 // Construit un message en répétant lg-5 fois un motif
 void construire_message (char *message, char motif, int lg, int numero) 
 {
 	// Construction de la suite de motifs
 	int i;
-	for (i=0 ; i<lg; i++) message[i] = motif; 
+	char str[5];
+	sprintf(str, "%d", numero);
+	for (i=0; i < lg; i++) 
+	{
+		if (i < 5-longueur_nombre(numero))
+		{
+			message[i] = '-';
+		}
+		else if (i < 5)
+		{		
+			message[i] = str[i-5+longueur_nombre(numero)];
+		}
+		else
+		{
+			message[i] = motif;
+		}
+	}
 }
 
 void afficher_message (char *message, int lg) {
@@ -141,8 +176,8 @@ void afficher_message (char *message, int lg) {
 	for (i=0 ; i<lg ; i++) 
 	{
 		printf("%c", message[i]) ; 
-		printf("\n");
 	}
+	printf("\n");
 }
 
 // Crée un socket qui agit en temps que source
@@ -188,7 +223,7 @@ void comm_source(char* nom_dest, int port, int udp, int lg, int nb)
 	memcpy((char*)&(adr_dest.sin_addr.s_addr), hp->h_addr, hp->h_length);
 
 	// Envoi des messages
-	char* message;
+	char message[TAILLE_MAX];
 	memset(message, 0, lg);
 
 	char motif;
