@@ -22,8 +22,11 @@ données du réseau */
 #define LG_MESSAGE_DEF 30
 #define NB_MESSAGES_DEF 30
 #define TAILLE_MAX 500
+#define NB_MAX 5
 
 
+// Retourne la longueur d'un nombre (nombre de caractères nécessaires à son écriture)
+int longueur_nombre(int nombre);
 
 // Construit un message en répétant lg-5 fois un motif
 void construire_message (char *message, char motif, int lg, int numero);
@@ -55,13 +58,12 @@ void main (int argc, char **argv)
 	int c;
 	extern char *optarg;
 	extern int optind;
-	int nb_message = -1; /* Nb de messages à envoyer ou à recevoir, par défaut : 10 en émission, infini en réception */
 	int source = -1 ; /* 0=puits, 1=source */
 	int udp = 0; // 0=tcp, 1=udp
 	int nb_messages = NB_MESSAGES_DEF;
 	int lg_message = LG_MESSAGE_DEF;
 
-	while ((c = getopt(argc, argv, "pun:s")) != -1) 
+	while ((c = getopt(argc, argv, "pul:n:s")) != -1) 
 	{
 		switch (c) 
 		{
@@ -84,11 +86,15 @@ void main (int argc, char **argv)
 				break;
 
 			case 'n':
-				nb_message = atoi(optarg);
+				nb_messages = atoi(optarg);
 				break;
 
 			case 'u':
 				udp = 1;
+				break;
+
+			case 'l' : 
+				lg_message = atoi(optarg);
 				break;
 
 			default:
@@ -107,12 +113,12 @@ void main (int argc, char **argv)
 	if (source == 1)
 	 {
 		printf("on est dans le source\n");
-		comm_source(argv[argc-2], atoi(argv[argc-1]), udp, lg_message, nb_messages);	
+		comm_source(argv[argc-2], htons(atoi(argv[argc-1])), udp, lg_message, nb_messages);	
 	 }
 	else
 	{
 		printf("on est dans le puits\n");
-		comm_puits(atoi(argv[argc-1]), udp, lg_message, nb_messages);	
+		comm_puits(htons(atoi(argv[argc-1])), udp, lg_message, nb_messages);	
 	}
 
 	exit(0);
@@ -162,7 +168,7 @@ void construire_message (char *message, char motif, int lg, int numero)
 // Affichage en mode puits
 void afficher_message_puits (char *message, int lg, int numero) {
 	int i;
-	printf("PUITS : Reception n°%d (%d) [", numero, lg);
+	printf("PUITS : Reception n°%d (%d) [", numero+1, lg);
 	for (i=0 ; i<lg ; i++) 
 	{
 		printf("%c", message[i]) ; 
@@ -173,7 +179,7 @@ void afficher_message_puits (char *message, int lg, int numero) {
 // Affichage en mode source
 void afficher_message_source (char *message, int lg, int numero) {
 	int i;
-	printf("SOURCE : Envoi n°%d (%d) [", numero, lg);
+	printf("SOURCE : Envoi n°%d (%d) [", numero+1, lg);
 	for (i=0 ; i<lg ; i++) 
 	{
 		printf("%c", message[i]) ; 
@@ -215,6 +221,7 @@ void comm_source(char* nom_dest, int port, int udp, int lg, int nb)
 	memset((char*)&adr_dest, 0, sizeof(adr_dest));
 	adr_dest.sin_family = AF_INET;
 	adr_dest.sin_port = port;
+	
 	struct hostent* hp;
 	if ((hp = gethostbyname(nom_dest)) == NULL)
 	{
@@ -232,6 +239,10 @@ void comm_source(char* nom_dest, int port, int udp, int lg, int nb)
 	if (udp)
 	{
 		// UDP
+		// On construit le message. On l'envoie en UDP avec sendto 
+		// en précisant le socket d'arrivée. 
+		// On répète l'opération pour le nombre de messages choisi.
+
 		int i;
 		for (i=0; i<nb; i++)
 		{
@@ -244,6 +255,20 @@ void comm_source(char* nom_dest, int port, int udp, int lg, int nb)
 	else
 	{
 		// TCP
+		// On envoie une demande de connexion à la machine distante.
+		// Lorsque la demande est acceptée, on envoie les messages.
+
+		connect(sock, (struct sockaddr *)&adr_dest, sizeof(adr_dest)); 
+
+		int i;
+		for (i=0; i<nb; i++)
+		{
+			motif = (char)((int)'a' + i % 26);
+			construire_message(message, motif,lg, i+1); 
+			write(sock, message, lg);
+			afficher_message_source(message, lg, i);
+		}
+
 	}
 
 	close(sock);
@@ -258,7 +283,7 @@ void comm_source(char* nom_dest, int port, int udp, int lg, int nb)
 // nb : nombre de messages
 void comm_puits(int port, int udp, int lg, int nb)
 {
-	int sock;
+	int sock, sock_bis;
 	struct sockaddr_in adr_local;
 
 	// Construction du socket
@@ -270,7 +295,7 @@ void comm_puits(int port, int udp, int lg, int nb)
 	else
 	{
 		// TCP
-		sock = socket(AF_INET, SOCK_STREAM, 0);
+		sock = socket(AF_INET, SOCK_STREAM, 0);; 
 	}
 
 	if (sock == -1)
@@ -295,24 +320,66 @@ void comm_puits(int port, int udp, int lg, int nb)
 	char message[TAILLE_MAX];
 	memset(message, 0, lg*sizeof(char));
 
-	struct sockaddr padr_em;
-	int plg_adr_em;
+	struct sockaddr_in padr_em;
+	int plg_adr_em = sizeof(padr_em);
 
 	if (udp)
 	{
 		// UDP
+		// On attend un message. Quand il est recu, il est affiché.
+		// Puis on retourne en attente si il reste des messages à recevoir.
+
 		int i;
 		for (i=0; i<nb; i++)
 		{
-			recvfrom(sock, message, lg, 0, &padr_em, &plg_adr_em);
+			recvfrom(sock, message, lg, 0, (struct sockaddr*)&padr_em, &plg_adr_em);
 			afficher_message_puits(message, lg, i);
 		}
 	}
 	else
 	{
 		// TCP
+		// On utilise listen pour construire une file d'attente des messages recus en simultané.
+		// Puis on attend une demande de connexion. Lorsqu'une demande est recue, elle est acceptée.
+		// Alors on divise le programme : 
+		// - un fils qui va gérer la réception des messages 
+		//   et leur affichage, qui meurt une fois sa tache terminée.
+		// - le père qui continue à recevoir des demandes de connexion.
+
+		listen(sock, NB_MAX);
+		while (1) 
+		{
+			sock_bis = accept(sock, (struct sockaddr*)&padr_em, &plg_adr_em);
+
+			if (sock_bis==-1)
+			{
+				perror("accept"); 
+			}	
+			switch (fork()) 
+			{
+				case -1 : 
+					printf("erreur fork \n"); 
+					exit(1);
+				case 0: 
+					close(sock);
+					int i;
+					int lg_rec; 
+					for (i=0; i<nb; i++)
+					{
+						if ((lg_rec=read(sock_bis, message, lg)) < 0)
+						{
+							//perror("echec du read\n");
+							exit(1); 
+						}
+						afficher_message_puits(message, lg_rec, i);
+					}
+					exit(0); 
+				default : 
+				close(sock_bis);
+			}
+		}
+
 	}
 	close(sock);
-
 }
 
