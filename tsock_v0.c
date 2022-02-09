@@ -1,4 +1,4 @@
-/* librairie standard ... */
+/* librairie standard ...kkkkk */
 #include <stdlib.h>
 /* pour getopt */
 #include <unistd.h>
