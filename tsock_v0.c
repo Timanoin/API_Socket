@@ -18,8 +18,6 @@ données du réseau */
 /* pour la gestion des erreurs */
 #include <errno.h>
 
-#include "t_message_id.h"
-
 #define NOM_POSTE_DEST localhost
 #define LG_MESSAGE_DEF 30
 #define NB_MESSAGES_DEF 30
@@ -41,7 +39,10 @@ void construire_message (char *message, char motif, int lg, int numero);
 void afficher_message_puits (char *message, int lg, int numero);
 
 // Affichage en mode source
-void afficher_message_source (char *message, int lg, int numero);
+void afficher_message_emetteur (char *message, int lg, int num_recept, int numero);
+
+// Construit un message d'identification
+void construire_message_id(char* message_id, int option, int nb, int lg);
 
 // Crée un socket qui agit en temps qu'emetteur
 // num_recept : numéro du récepteur
@@ -67,6 +68,7 @@ void main (int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int option = -1 ; /* 0=emetteur, 1=recepteur, 2=bal */
+	int num_recept;
 	int nb_messages = NB_MESSAGES_DEF;
 	int lg_message = LG_MESSAGE_DEF;
 
@@ -82,6 +84,7 @@ void main (int argc, char **argv)
 					exit(1);
 				}
 				option = EMISSION;
+				num_recept = atoi(optarg);
 				break;
 
 			// mode réception
@@ -92,6 +95,7 @@ void main (int argc, char **argv)
 					exit(1);
 				}
 				option = RECEPTION;
+				num_recept = atoi(optarg);
 				break;
 
 			// mode serveur bal
@@ -122,17 +126,18 @@ void main (int argc, char **argv)
 
 	if (option == EMISSION)
 	 {
-		printf("on est dans le source\n");
-		comm_source(argv[argc-2], htons(atoi(argv[argc-1])), lg_message, nb_messages);	
+		printf("On est en mode emission\n");
+		comm_emetteur(num_recept, argv[argc-2], htons(atoi(argv[argc-1])), lg_message, nb_messages);	
 	 }
 	else if (option == RECEPTION)
 	{
-		printf("on est dans le puits\n");
-		comm_puits(htons(atoi(argv[argc-1])), lg_message, nb_messages);	
+		printf("On est en mode reception\n");
+		comm_recepteur(num_recept, argv[argc-2], htons(atoi(argv[argc-1])));	
 	}
 	else if (option == BAL)
 	{
-
+		printf("On est en mode serveur boite aux lettres\n");
+		comm_bal(htons(atoi(argv[argc-1])));
 	}
 	else
 	{
@@ -195,10 +200,10 @@ void afficher_message_puits (char *message, int lg, int numero) {
 	printf("]\n");
 }
 
-// Affichage en mode source
-void afficher_message_source (char *message, int lg, int numero) {
+// Affichage en mode emetteur
+void afficher_message_emetteur (char *message, int lg, int num_recept, int numero) {
 	int i;
-	printf("SOURCE : Envoi n°%d (%d) [", numero+1, lg);
+	printf("SOURCE : Envoi de la lettre n°%d pour le recepteur n°%d[", numero+1, num_recept);
 	for (i=0 ; i<lg ; i++) 
 	{
 		printf("%c", message[i]) ; 
@@ -206,146 +211,16 @@ void afficher_message_source (char *message, int lg, int numero) {
 	printf("]\n");
 }
 
-// Crée un socket qui agit en temps que source
-// nom_dest : le nom du poste destinataire
-// port : le port du poste destinataire
-// lg : longueur du message
-// nb : nombre de messages
-void comm_source(char* nom_dest, int port, int lg, int nb)
+
+// Construit un message d'identification
+void construire_message_id(char* message_id, int option, int nb, int lg)
 {
-	int sock;
-	struct sockaddr_in adr_dest;
-
-	// Construction du socket TCP
-	sock = socket(AF_INET, SOCK_STREAM, 0);
-	
-	if (sock == -1)
-	{
-		printf("Erreur lors de la création du socket\n");
-		exit(1);
-	}
-	printf("Socket construit");
-
-	// Création de l'adresse distante
-	memset((char*)&adr_dest, 0, sizeof(adr_dest));
-	adr_dest.sin_family = AF_INET;
-	adr_dest.sin_port = port;
-	
-	struct hostent* hp;
-	if ((hp = gethostbyname(nom_dest)) == NULL)
-	{
-		printf("Erreur gethostbyname \n");
-		exit(1);
-	}
-	memcpy((char*)&(adr_dest.sin_addr.s_addr), hp->h_addr, hp->h_length);
-
-	// Envoi des messages
-	char message[TAILLE_MAX];
-	memset(message, 0, lg);
-
-	char motif;
-
-	// TCP
-	// On envoie une demande de connexion à la machine distante.
-	// Lorsque la demande est acceptée, on envoie les messages.
-
-	connect(sock, (struct sockaddr *)&adr_dest, sizeof(adr_dest)); 
-
-	int i;
-	for (i=0; i<nb; i++)
-	{
-		motif = (char)((int)'a' + i % 26);
-		construire_message(message, motif,lg, i+1); 
-		write(sock, message, lg);
-		afficher_message_source(message, lg, i);
-	}
-
+	memset(message_id, 0, 3*sizeof(int));
+	message_id[0] = (char)option;
+	message_id[sizeof(int)] = (char)nb;
+	message_id[2*sizeof(int)] = (char)lg;
 }
 
-close(sock);
-
-
-
-// Crée un socket qui agit en temps que puits
-// port : le port de reception
-// lg : longueur du message
-// nb : nombre de messages
-void comm_puits(int port, int lg, int nb)
-{
-	int sock, sock_bis;
-	struct sockaddr_in adr_local;
-
-	// Construction du socket du TCP
-	sock = socket(AF_INET, SOCK_STREAM, 0);
-
-	if (sock == -1)
-	{
-		printf("Erreur lors de la création du socket\n");
-		exit(1);
-	}
-
-	// Création de l'adresse locale
-	memset((char*)&adr_local, 0, sizeof(adr_local));
-	adr_local.sin_family = AF_INET;
-	adr_local.sin_port = port;
-	adr_local.sin_addr.s_addr = INADDR_ANY;
-
-	if(bind(sock, (struct sockaddr*)&adr_local, sizeof(adr_local)) == -1)
-	{
-		printf("Echec du bind\n");
-		exit(1);
-	}
-
-	// Reception et affichage des messages
-	char message[TAILLE_MAX];
-	memset(message, 0, lg*sizeof(char));
-
-	struct sockaddr_in padr_em;
-	int plg_adr_em = sizeof(padr_em);
-
-		// TCP
-		// On utilise listen pour construire une file d'attente des messages recus en simultané.
-		// Puis on attend une demande de connexion. Lorsqu'une demande est recue, elle est acceptée.
-		// Alors on divise le programme : 
-		// - un fils qui va gérer la réception des messages 
-		//   et leur affichage, qui meurt une fois sa tache terminée.
-		// - le père qui continue à recevoir des demandes de connexion.
-
-		listen(sock, NB_MAX);
-		while (1) 
-		{
-			sock_bis = accept(sock, (struct sockaddr*)&padr_em, &plg_adr_em);
-
-			if (sock_bis==-1)
-			{
-				perror("accept"); 
-			}	
-			switch (fork()) 
-			{
-			case -1 : 
-				printf("erreur fork \n"); 
-				exit(1);
-			case 0: 
-				close(sock);
-				int i;
-				int lg_rec; 
-				for (i=0; i<nb; i++)
-				{
-					if ((lg_rec=read(sock_bis, message, lg)) < 0)
-					{
-						//perror("echec du read\n");
-						exit(1); 
-					}
-					afficher_message_puits(message, lg_rec, i);
-				}
-				exit(0); 
-			default : 
-			close(sock_bis);
-		}
-	}
-
-	close(sock);
-}
 
 // Crée un socket qui agit en temps qu'emetteur
 // num_recept : numéro du récepteur
@@ -373,7 +248,7 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 	adr_dest.sin_port = port;
 	
 	struct hostent* hp;
-	if ((hp = gethostbyname(nom_dest)) == NULL)
+	if ((hp = gethostbyname(nom_machine)) == NULL)
 	{
 		printf("Erreur gethostbyname \n");
 		exit(1);
@@ -390,9 +265,9 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 		exit(1);
 	}
 
-	t_message_id message_id_em = {EMETTEUR, nb, lg};
-
-
+	char message_id[12];
+	construire_message_id(message_id,EMISSION, nb, lg);
+	write(sock, message_id, 3*sizeof(int));
 
 	// Envoi des messages
 	char message[TAILLE_MAX];
@@ -404,9 +279,80 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 	for (i=0; i<nb; i++)
 	{
 		motif = (char)((int)'a' + i % 26);
-		construire_message(message, motif,lg, i+1); 
+		construire_message(message, motif,lg, num_recept); 
 		write(sock, message, lg);
-		afficher_message_source(message, lg, i);
+		afficher_message_emetteur(message, lg, num_recept, i);
 	}
 }
+
+// Crée un socket qui agit en temps que récepteur
+// num_recept : numéro du récepteur
+// nom_machine : le nom du poste hébergeant le serveur
+// port : le port du poste destinataire
+void comm_recepteur(int num_recept, char* nom_machine, int port)
+{
+	NULL;
+}
+
+// Crée un socket qui agit en temps que serveur de bal
+// port : le port du poste destinataire
+void comm_bal(int port)
+{
+	int sock, sock_bis;
+	struct sockaddr_in adr_local;
+
+	// Construction du socket
+	// TCP
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+
+	if (sock == -1)
+	{
+		printf("Erreur lors de la création du socket\n");
+		exit(1);
+	}
+
+	// Création de l'adresse locale
+	memset((char*)&adr_local, 0, sizeof(adr_local));
+	adr_local.sin_family = AF_INET;
+	adr_local.sin_port = port;
+	adr_local.sin_addr.s_addr = INADDR_ANY;
+
+	if(bind(sock, (struct sockaddr*)&adr_local, sizeof(adr_local)) == -1)
+	{
+		printf("Echec du bind\n");
+		exit(1);
+	}
+
+	struct sockaddr_in padr_em;
+	int plg_adr_em = sizeof(padr_em);
+
+	// TCP
+	// On utilise listen pour construire une file d'attente des messages recus en simultané.
+	// Puis on attend une demande de connexion. Lorsqu'une demande est recue, elle est acceptée.
+	// Alors on divise le programme : 
+	// - un fils qui va gérer la réception des messages 
+	//   et leur affichage, qui meurt une fois sa tache terminée.
+	// - le père qui continue à recevoir des demandes de connexion.
+	listen(sock, NB_MAX);
+	sock_bis = accept(sock, (struct sockaddr*)&padr_em, &plg_adr_em);
+	if (sock_bis==-1)
+	{
+		perror("Erreur : la connexion n'a pas ete acceptee"); 
+	}	
+
+	char message_id[12];
+	memset(message_id, 0, 3*sizeof(int)); 
+
+	read(sock_bis, message_id, 3*sizeof(int)); 
+
+	int identite = (int)message_id[0]; 
+	int nb = (int)message_id[4]; 
+	int lg = (int)message_id[8]; 
+
+
+
+	close(sock);
+}
+
+
 

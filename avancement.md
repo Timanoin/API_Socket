@@ -94,7 +94,7 @@ Le Récepteur  (l'option "-r" de tsock) : qui est une adaptation de la version v
 ### Pour les fonctionnalités de l'émetteur (l'option "-e" de tsock)
  veuillez indiquer les étapes que vous avez validées.
 
-[ ] demande d'établissement de connexion TCP avec le serveur BAL fonctionnelle
+[X] demande d'établissement de connexion TCP avec le serveur BAL fonctionnelle
 
 [ ] transmission du PDU applicatif en charge de le déclarer en tant que émetteur et éventuellement indiquer la taille et nombre de messages qu'il émet est fonctionnelle
 
