@@ -349,7 +349,7 @@ void comm_bal(int port)
 	int nb = (int)message_id[4]; 
 	int lg = (int)message_id[8]; 
 
-
+	
 
 	close(sock);
 }
