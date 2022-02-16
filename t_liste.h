@@ -32,7 +32,4 @@ void ajouter_lettre(t_bal* bal, char* message, int lg);
 
 t_liste_bal* initialiser_liste_bal(void);
 
-
-
-
 #endif 

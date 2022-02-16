@@ -349,7 +349,28 @@ void comm_bal(int port)
 	int nb = (int)message_id[4]; 
 	int lg = (int)message_id[8]; 
 
-	
+	char message[TAILLE_MAX];
+	memset(message, 0, lg);
+
+	if (identite == EMISSION)
+	{
+		int i;
+		int lg_effective;
+		for (i=0;i<nb;i++)
+		{
+			lg_effective = read(sock_bis, message, lg);
+			if (lg_effective==-1)
+			{
+				perror("Erreur read\n"); 
+			}
+			// Extraction des informations du message
+			
+		}
+	}
+	else
+	{
+
+	}
 
 	close(sock);
 }
