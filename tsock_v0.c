@@ -190,10 +190,11 @@ void construire_message (char *message, char motif, int lg, int numero)
 	}
 }
 
-// Affichage en mode puits
-void afficher_message_puits (char *message, int lg, int numero) {
+// Affichage en mode recepteur
+void afficher_message_recepteur (char *message, int lg, int numero) 
+{
 	int i;
-	printf("PUITS : Reception n°%d (%d) [", numero+1, lg);
+	printf("RECEPTION : Récupération de la lettre par le recepteur %d (%d) [", numero, lg);
 	for (i=0 ; i<lg ; i++) 
 	{
 		printf("%c", message[i]) ; 
@@ -298,7 +299,73 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 // port : le port du poste destinataire
 void comm_recepteur(int num_recept, char* nom_machine, int port)
 {
-	NULL;
+	int sock;
+	struct sockaddr_in adr_dest;
+
+	// Construction du socket TCP
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock == -1)
+	{
+		printf("Erreur lors de la création du socket\n");
+		exit(1);
+	}
+
+	// Création de l'adresse distante du serveur BAL
+	memset((char*)&adr_dest, 0, sizeof(adr_dest));
+	adr_dest.sin_family = AF_INET;
+	adr_dest.sin_port = port;
+	
+	struct hostent* hp;
+	if ((hp = gethostbyname(nom_machine)) == NULL)
+	{
+		printf("Erreur gethostbyname \n");
+		exit(1);
+	}
+	memcpy((char*)&(adr_dest.sin_addr.s_addr), hp->h_addr, hp->h_length);
+
+	// On envoie une demande de connexion TCP à la machine distante.
+	int connexion = connect(sock, (struct sockaddr *)&adr_dest, sizeof(adr_dest)); 
+	if (connexion == -1)
+	{
+		printf("Erreur de connexion\n");
+		exit(1);
+	}
+
+	// Construction et envoi du message d'identification
+	char message_id[12];
+	construire_message_id(message_id,RECEPTION, 0, 0);
+	write(sock, message_id, 3*sizeof(int));
+
+	// Reception du message indiquant si la bal existe
+	//et le nombre de lettres
+	char message_info[8];
+	memset(message_info, 0, 2*sizeof(int)); 
+	read(sock, message_info, 2*sizeof(int)); 
+
+	if (atoi(message_info[0]) == 0)
+	{
+		printf("La boite aux lettres n'existe pas.\n");
+	}
+	else if (atoi(message_info[4]) == 0)
+	{
+		printf("Vous n'avez aucun message. :(\n");
+	}
+	else
+	{
+		int i; 
+		for (i=0; i<atoi(message_info[4]); i++)
+		{
+			char message_recu[4];
+			memset(message_recu, 0, sizeof(int)); 
+			read(sock, message_recu, sizeof(int)); 
+
+			char message[TAILLE_MAX];
+			memset(message, 0, atoi(message_recu));
+			read(sock, message, atoi(message_recu));
+			afficher_message_recepteur(message, atoi(message_recu), num_recept); 
+		}
+	}
+	
 }
 
 // Crée un socket qui agit en temps que serveur de bal
@@ -423,10 +490,10 @@ void comm_bal(int port)
 				}
 			}
 		}
+		close(sock_bis);
 	}
 
 	close(sock);
 }
-
 
 
