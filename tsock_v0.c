@@ -1,4 +1,4 @@
-/* librairie standard ...kkkkk */
+/* librairie standard ... */
 #include <stdlib.h>
 /* pour getopt */
 #include <unistd.h>
@@ -218,9 +218,9 @@ void afficher_message_emetteur (char *message, int lg, int num_recept, int numer
 void construire_message_id(char* message_id, int option, int nb, int lg)
 {
 	memset(message_id, 0, 3*sizeof(int));
-	message_id[0] = itoa(option);
-	message_id[sizeof(int)] = itoa(nb);
-	message_id[2*sizeof(int)] = itoa(lg);
+	sprintf(&message_id[0], "%d",option);
+	sprintf(&message_id[sizeof(int)], "%d",nb);
+	sprintf(&message_id[2*sizeof(int)],"%d",lg);
 }
 
 // Construit un premier message adressé au recepteur lui indiquant 
@@ -228,8 +228,8 @@ void construire_message_id(char* message_id, int option, int nb, int lg)
 void construire_message_recepteur(char* message_recept, int existance_bal, int nb_lettres)
 {
 	memset(message_recept, 0, 2*sizeof(int));
-	message_recept[0] = itoa(existance_bal);
-	message_recept[sizeof(int)] = itoa(nb_lettres);
+	sprintf(&message_recept[0],"%d",existance_bal);
+	sprintf(&message_recept[sizeof(int)], "%d",nb_lettres);
 }
 
 
@@ -342,18 +342,18 @@ void comm_recepteur(int num_recept, char* nom_machine, int port)
 	memset(message_info, 0, 2*sizeof(int)); 
 	read(sock, message_info, 2*sizeof(int)); 
 
-	if (atoi(message_info[0]) == 0)
+	if (atoi(&message_info[0]) == 0)
 	{
 		printf("La boite aux lettres n'existe pas.\n");
 	}
-	else if (atoi(message_info[4]) == 0)
+	else if (atoi(&message_info[4]) == 0)
 	{
 		printf("Vous n'avez aucun message. :(\n");
 	}
 	else
 	{
 		int i; 
-		for (i=0; i<atoi(message_info[4]); i++)
+		for (i=0; i<atoi(&message_info[4]); i++)
 		{
 			char message_recu[4];
 			memset(message_recu, 0, sizeof(int)); 
@@ -406,91 +406,95 @@ void comm_bal(int port)
 	int plg_adr_em = sizeof(padr_em);
 
 	listen(sock, NB_MAX);
-	sock_bis = accept(sock, (struct sockaddr*)&padr_em, &plg_adr_em);
-	if (sock_bis == -1)
-	{
-		perror("Erreur : la connexion n'a pas ete acceptee"); 
-	}	
 
 	t_liste_bal* liste = initialiser_liste_bal(); 
 
-	// Reception du message d'identification
-	char message_id[12];
-	memset(message_id, 0, 3*sizeof(int)); 
-	read(sock_bis, message_id, 3*sizeof(int)); 
-	
-	// Récupération des informations du message d'identification
-	int identite = (int)message_id[0]; 
-	int nb_messages_attendus = (int)message_id[4]; 
-	int lg_attendue = (int)message_id[8]; 
-
-	char message[TAILLE_MAX];
-	memset(message, 0, lg_attendue);
-
-	if (identite == EMISSION)
+	while(1)
 	{
-		int i;
-		int lg_effective;
-		//Verification de l'existence de la bal
-		if (!verifier_existance_bal(liste, identite))
+		sock_bis = accept(sock, (struct sockaddr*)&padr_em, &plg_adr_em);
+		if (sock_bis == -1)
 		{
-			ajouter_bal(liste, identite);
-		}
+			perror("Erreur : la connexion n'a pas ete acceptee"); 
+		}	
 
-		t_bal* bal = recuperer_bal(liste, identite);
+		// Reception du message d'identification
+		char message_id[12];
+		memset(message_id, 0, 3*sizeof(int)); 
+		read(sock_bis, message_id, 3*sizeof(int)); 
+		
+		// Récupération des informations du message d'identification
+		int identite = (int)message_id[0]; 
+		int nb_messages_attendus = (int)message_id[4]; 
+		int lg_attendue = (int)message_id[8]; 
 
-		for (i=0;i<nb_messages_attendus;i++)
+		char message[TAILLE_MAX];
+		memset(message, 0, lg_attendue);
+
+		if (identite == EMISSION)
 		{
-			lg_effective = read(sock_bis, message, lg_attendue);
-			if (lg_effective==-1)
+			int i;
+			int lg_effective;
+			//Verification de l'existence de la bal
+			if (!verifier_existance_bal(liste, identite))
 			{
-				perror("Erreur read\n"); 
+				ajouter_bal(liste, identite);
 			}
-			// Extraction des informations du message
-			if (bal->nb_lettres==0)
-			{
-				bal->premiere_lettre = nouvelle_lettre(message, lg_effective);
-				bal->nb_lettres = 1;
-			}
-			else
-			{
-				ajouter_lettre(bal, message, lg_effective);
-			}
-		}
-	}
-	else // Recepteur
-	{
-		if (verifier_existance_bal(liste, identite))
-		{
+
 			t_bal* bal = recuperer_bal(liste, identite);
 
-			// Envoi d'un message qui indique que la bal existe 
-			// et le nombre de lettres
-			char message_recept[TAILLE_MESSAGE_RECEPT];
-			construire_message_recept(message_recept, 1, bal->nb_lettres);
-			write(sock_bis, message_recept, 2*sizeof(int));
-
-			int i;
-			for (i=0;i<bal->nb_lettres;i++)
+			for (i=0;i<nb_messages_attendus;i++)
 			{
-				t_lettre* p = bal->premiere_lettre; 
-				// Boucle d'envoi des lettres stockées dans la bal
-				while (p != NULL)
+				lg_effective = read(sock_bis, message, lg_attendue);
+				if (lg_effective==-1)
 				{
-					// Construction et envoi d'un message 
-					// qui indique la taille de la prochaine lettre
-					char* message_taille;
-					memset(message_taille, 0, sizeof(int));
-					message_taille = itoa(p->lg);
-					write(sock_bis, message_taille, sizeof(int));
-
-					//Envoi de la lettre
-					write(sock_bis, p->message, p->lg);
-					p = p->lettre_suivante; 
+					perror("Erreur read\n"); 
+				}
+				// Extraction des informations du message
+				if (bal->nb_lettres==0)
+				{
+					bal->premiere_lettre = nouvelle_lettre(message, lg_effective);
+					bal->nb_lettres = 1;
+				}
+				else
+				{
+					ajouter_lettre(bal, message, lg_effective);
 				}
 			}
 		}
-		close(sock_bis);
+		else // Recepteur
+		{
+			if (verifier_existance_bal(liste, identite))
+			{
+				t_bal* bal = recuperer_bal(liste, identite);
+
+				// Envoi d'un message qui indique que la bal existe 
+				// et le nombre de lettres
+				char message_recept[TAILLE_MESSAGE_RECEPT];
+				construire_message_recepteur(message_recept, 1, bal->nb_lettres);
+				write(sock_bis, message_recept, 2*sizeof(int));
+
+				int i;
+				for (i=0;i<bal->nb_lettres;i++)
+				{
+					t_lettre* p = bal->premiere_lettre; 
+					// Boucle d'envoi des lettres stockées dans la bal
+					while (p != NULL)
+					{
+						// Construction et envoi d'un message 
+						// qui indique la taille de la prochaine lettre
+						char* message_taille;
+						memset(message_taille, 0, sizeof(int));
+						sprintf(&message_taille[0], "%d", p->lg);
+						write(sock_bis, message_taille, sizeof(int));
+
+						//Envoi de la lettre
+						write(sock_bis, p->message, p->lg);
+						p = p->lettre_suivante; 
+					}
+				}
+			}
+			close(sock_bis);
+		}
 	}
 
 	close(sock);
