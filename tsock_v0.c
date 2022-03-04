@@ -18,11 +18,15 @@ données du réseau */
 /* pour la gestion des erreurs */
 #include <errno.h>
 
+#include "t_liste.h"
+
 #define NOM_POSTE_DEST localhost
 #define LG_MESSAGE_DEF 30
 #define NB_MESSAGES_DEF 30
 #define TAILLE_MAX 500
 #define NB_MAX 5
+
+#define TAILLE_MESSAGE_RECEPT 8
 
 #define EMISSION 0
 #define RECEPTION 1
@@ -148,8 +152,6 @@ void main (int argc, char **argv)
 	exit(0);
 }
 
-
-
 // FONCTIONS
 
 // Retourne la longueur d'un nombre (nombre de caractères nécessaires à son écriture)
@@ -161,7 +163,6 @@ int longueur_nombre(int nombre)
 		nombre /= 10;
 		lg++;
 	}
-
 	return lg;
 }
 
@@ -216,9 +217,18 @@ void afficher_message_emetteur (char *message, int lg, int num_recept, int numer
 void construire_message_id(char* message_id, int option, int nb, int lg)
 {
 	memset(message_id, 0, 3*sizeof(int));
-	message_id[0] = (char)option;
-	message_id[sizeof(int)] = (char)nb;
-	message_id[2*sizeof(int)] = (char)lg;
+	message_id[0] = itoa(option);
+	message_id[sizeof(int)] = itoa(nb);
+	message_id[2*sizeof(int)] = itoa(lg);
+}
+
+// Construit un premier message adressé au recepteur lui indiquant 
+// si la bal existe et le nombre de messages
+void construire_message_recepteur(char* message_recept, int existance_bal, int nb_lettres)
+{
+	memset(message_recept, 0, 2*sizeof(int));
+	message_recept[0] = itoa(existance_bal);
+	message_recept[sizeof(int)] = itoa(nb_lettres);
 }
 
 
@@ -235,7 +245,6 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 
 	// Construction du socket TCP
 	sock = socket(AF_INET, SOCK_STREAM, 0);
-	
 	if (sock == -1)
 	{
 		printf("Erreur lors de la création du socket\n");
@@ -255,9 +264,7 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 	}
 	memcpy((char*)&(adr_dest.sin_addr.s_addr), hp->h_addr, hp->h_length);
 
-	// TCP
-	// On envoie une demande de connexion à la machine distante.
-
+	// On envoie une demande de connexion TCP à la machine distante.
 	int connexion = connect(sock, (struct sockaddr *)&adr_dest, sizeof(adr_dest)); 
 	if (connexion == -1)
 	{
@@ -265,6 +272,7 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 		exit(1);
 	}
 
+	// Construction et envoi du message d'identification
 	char message_id[12];
 	construire_message_id(message_id,EMISSION, nb, lg);
 	write(sock, message_id, 3*sizeof(int));
@@ -272,7 +280,6 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 	// Envoi des messages
 	char message[TAILLE_MAX];
 	memset(message, 0, lg);
-
 	char motif;
 
 	int i;
@@ -301,10 +308,8 @@ void comm_bal(int port)
 	int sock, sock_bis;
 	struct sockaddr_in adr_local;
 
-	// Construction du socket
-	// TCP
+	// Construction du socket TCP
 	sock = socket(AF_INET, SOCK_STREAM, 0);
-
 	if (sock == -1)
 	{
 		printf("Erreur lors de la création du socket\n");
@@ -323,9 +328,6 @@ void comm_bal(int port)
 		exit(1);
 	}
 
-	struct sockaddr_in padr_em;
-	int plg_adr_em = sizeof(padr_em);
-
 	// TCP
 	// On utilise listen pour construire une file d'attente des messages recus en simultané.
 	// Puis on attend une demande de connexion. Lorsqu'une demande est recue, elle est acceptée.
@@ -333,43 +335,94 @@ void comm_bal(int port)
 	// - un fils qui va gérer la réception des messages 
 	//   et leur affichage, qui meurt une fois sa tache terminée.
 	// - le père qui continue à recevoir des demandes de connexion.
+	struct sockaddr_in padr_em;
+	int plg_adr_em = sizeof(padr_em);
+
 	listen(sock, NB_MAX);
 	sock_bis = accept(sock, (struct sockaddr*)&padr_em, &plg_adr_em);
-	if (sock_bis==-1)
+	if (sock_bis == -1)
 	{
 		perror("Erreur : la connexion n'a pas ete acceptee"); 
 	}	
 
+	t_liste_bal* liste = initialiser_liste_bal(); 
+
+	// Reception du message d'identification
 	char message_id[12];
 	memset(message_id, 0, 3*sizeof(int)); 
-
 	read(sock_bis, message_id, 3*sizeof(int)); 
-
+	
+	// Récupération des informations du message d'identification
 	int identite = (int)message_id[0]; 
-	int nb = (int)message_id[4]; 
-	int lg = (int)message_id[8]; 
+	int nb_messages_attendus = (int)message_id[4]; 
+	int lg_attendue = (int)message_id[8]; 
 
 	char message[TAILLE_MAX];
-	memset(message, 0, lg);
+	memset(message, 0, lg_attendue);
 
 	if (identite == EMISSION)
 	{
 		int i;
 		int lg_effective;
-		for (i=0;i<nb;i++)
+		//Verification de l'existence de la bal
+		if (!verifier_existance_bal(liste, identite))
 		{
-			lg_effective = read(sock_bis, message, lg);
+			ajouter_bal(liste, identite);
+		}
+
+		t_bal* bal = recuperer_bal(liste, identite);
+
+		for (i=0;i<nb_messages_attendus;i++)
+		{
+			lg_effective = read(sock_bis, message, lg_attendue);
 			if (lg_effective==-1)
 			{
 				perror("Erreur read\n"); 
 			}
 			// Extraction des informations du message
-			
+			if (bal->nb_lettres==0)
+			{
+				bal->premiere_lettre = nouvelle_lettre(message, lg_effective);
+				bal->nb_lettres = 1;
+			}
+			else
+			{
+				ajouter_lettre(bal, message, lg_effective);
+			}
 		}
 	}
-	else
+	else // Recepteur
 	{
+		if (verifier_existance_bal(liste, identite))
+		{
+			t_bal* bal = recuperer_bal(liste, identite);
 
+			// Envoi d'un message qui indique que la bal existe 
+			// et le nombre de lettres
+			char message_recept[TAILLE_MESSAGE_RECEPT];
+			construire_message_recept(message_recept, 1, bal->nb_lettres);
+			write(sock_bis, message_recept, 2*sizeof(int));
+
+			int i;
+			for (i=0;i<bal->nb_lettres;i++)
+			{
+				t_lettre* p = bal->premiere_lettre; 
+				// Boucle d'envoi des lettres stockées dans la bal
+				while (p != NULL)
+				{
+					// Construction et envoi d'un message 
+					// qui indique la taille de la prochaine lettre
+					char* message_taille;
+					memset(message_taille, 0, sizeof(int));
+					message_taille = itoa(p->lg);
+					write(sock_bis, message_taille, sizeof(int));
+
+					//Envoi de la lettre
+					write(sock_bis, p->message, p->lg);
+					p = p->lettre_suivante; 
+				}
+			}
+		}
 	}
 
 	close(sock);
