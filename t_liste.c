@@ -9,13 +9,20 @@ void ajouter_bal(t_liste_bal* liste_bal, int num_recepteur)
     bal->num_recepteur = num_recepteur;
     bal->premiere_lettre = NULL; 
 
-    t_bal* p = liste_bal->premiere_bal; 
-    while (p->bal_suivante != NULL)
+    if (liste_bal->premiere_bal == NULL)
     {
-        p = p->bal_suivante; 
+        liste_bal->premiere_bal = bal;
     }
-    p->bal_suivante = bal;
-
+    else
+    {
+        t_bal* p = liste_bal->premiere_bal; 
+        while (p->bal_suivante != NULL)
+        {
+            p = p->bal_suivante; 
+        }
+        p->bal_suivante = bal;
+    }
+    
     liste_bal->nb_bal++; 
 }
 
@@ -24,7 +31,7 @@ int verifier_existance_bal(t_liste_bal* liste_bal, int num_recepteur)
 {
     int existe = 0;
     t_bal* p = liste_bal->premiere_bal; 
-    while (p->bal_suivante != NULL && !existe)
+    while (p!= NULL && !existe)
     {
         existe = (p->num_recepteur == num_recepteur);
         p = p->bal_suivante; 
@@ -35,7 +42,7 @@ int verifier_existance_bal(t_liste_bal* liste_bal, int num_recepteur)
 t_bal* recuperer_bal(t_liste_bal* liste_bal, int num_recepteur)
 {
     t_bal* p = liste_bal->premiere_bal; 
-    while (p->num_recepteur != num_recepteur)
+    while (p->num_recepteur != num_recepteur && p!=NULL)
     {
         p = p->bal_suivante; 
     }
@@ -69,4 +76,5 @@ t_liste_bal* initialiser_liste_bal(void)
     t_liste_bal* liste_bal = (t_liste_bal*)malloc(sizeof(t_liste_bal));
     liste_bal->premiere_bal = NULL;
     liste_bal->nb_bal = 0; 
+    return liste_bal;
 }

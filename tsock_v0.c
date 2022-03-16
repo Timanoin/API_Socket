@@ -46,7 +46,10 @@ void afficher_message_puits (char *message, int lg, int numero);
 void afficher_message_emetteur (char *message, int lg, int num_recept, int numero);
 
 // Construit un message d'identification
-void construire_message_id(char* message_id, int option, int nb, int lg);
+void construire_message_id(char* message_id, int option, int nb, int lg, int num_recept);
+
+// Envoie un message d'erreur et ferme le programme
+void message_erreur(void);
 
 // Crée un socket qui agit en temps qu'emetteur
 // num_recept : numéro du récepteur
@@ -84,7 +87,7 @@ void main (int argc, char **argv)
 			case 'e':
 				if (option == RECEPTION || option == BAL) 
 				{
-					printf("usage: cmd [-p|-s][-n ##]\n");
+					message_erreur();
 					exit(1);
 				}
 				option = EMISSION;
@@ -95,7 +98,7 @@ void main (int argc, char **argv)
 			case 'r':
 				if (option == EMISSION || option == BAL) 
 				{
-					printf("usage: cmd [-p|-s][-n ##]\n");
+					message_erreur();
 					exit(1);
 				}
 				option = RECEPTION;
@@ -106,13 +109,11 @@ void main (int argc, char **argv)
 			case 'b':
 				if (option == RECEPTION || option == EMISSION) 
 				{
-					printf("usage: cmd [-p|-s][-n ##]\n");
+					message_erreur();
 					exit(1);
 				}
 				option = BAL;
 				break;
-
-			
 
 			case 'n':
 				nb_messages = atoi(optarg);
@@ -123,7 +124,7 @@ void main (int argc, char **argv)
 				break;
 
 			default:
-				printf("usage: cmd [-p|-s][-n ##]\n");
+				message_erreur();
 				break;
 		}
 	}
@@ -145,7 +146,7 @@ void main (int argc, char **argv)
 	}
 	else
 	{
-		printf("usage: cmd [-p|-s][-n ##]\n");
+		message_erreur();
 		exit(1) ;
 	}
 
@@ -190,6 +191,12 @@ void construire_message (char *message, char motif, int lg, int numero)
 	}
 }
 
+// Envoie un message d'erreur et ferme le programme
+void message_erreur(void)
+{
+	printf("usage: cmd [-e|-r|-b][-n ##] [-l ##]\n");
+}
+
 // Affichage en mode recepteur
 void afficher_message_recepteur (char *message, int lg, int numero) 
 {
@@ -213,14 +220,12 @@ void afficher_message_emetteur (char *message, int lg, int num_recept, int numer
 	printf("]\n");
 }
 
-
 // Construit un message d'identification
-void construire_message_id(char* message_id, int option, int nb, int lg)
+void construire_message_id(char* message_id, int option, int nb, int lg, int num_recept)
 {
-	memset(message_id, 0, 3*sizeof(int));
-	sprintf(&message_id[0], "%d",option);
-	sprintf(&message_id[sizeof(int)], "%d",nb);
-	sprintf(&message_id[2*sizeof(int)],"%d",lg);
+	memset(message_id, 0, 4*sizeof(int));
+	sprintf(message_id, "%4d%4d%4d%4d",option,nb,lg,num_recept);
+	printf("Contenu du message d'identification : %s\n", message_id);
 }
 
 // Construit un premier message adressé au recepteur lui indiquant 
@@ -275,8 +280,8 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 
 	// Construction et envoi du message d'identification
 	char message_id[12];
-	construire_message_id(message_id,EMISSION, nb, lg);
-	write(sock, message_id, 3*sizeof(int));
+	construire_message_id(message_id,EMISSION, nb, lg, num_recept);
+	write(sock, message_id, 4*sizeof(int));
 
 	// Envoi des messages
 	char message[TAILLE_MAX];
@@ -291,6 +296,8 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 		write(sock, message, lg);
 		afficher_message_emetteur(message, lg, num_recept, i);
 	}
+	printf("Fin de l'emission.\n");
+	// La fermeture de la connexion est gérée par la bal
 }
 
 // Crée un socket qui agit en temps que récepteur
@@ -332,9 +339,9 @@ void comm_recepteur(int num_recept, char* nom_machine, int port)
 	}
 
 	// Construction et envoi du message d'identification
-	char message_id[12];
-	construire_message_id(message_id,RECEPTION, 0, 0);
-	write(sock, message_id, 3*sizeof(int));
+	char message_id[16];
+	construire_message_id(message_id,RECEPTION, 0, 0, num_recept);
+	write(sock, message_id, 4*sizeof(int));
 
 	// Reception du message indiquant si la bal existe
 	//et le nombre de lettres
@@ -344,14 +351,18 @@ void comm_recepteur(int num_recept, char* nom_machine, int port)
 
 	if (atoi(&message_info[0]) == 0)
 	{
+		// La bal n'existe pas
 		printf("La boite aux lettres n'existe pas.\n");
 	}
 	else if (atoi(&message_info[4]) == 0)
 	{
+		// La bal existe mais pointe vers NULL
 		printf("Vous n'avez aucun message. :(\n");
 	}
 	else
 	{
+		// La bal existe et contient au moins une lettre
+		// On recoit le nombre de lettres indiquées dans le message_info
 		int i; 
 		for (i=0; i<atoi(&message_info[4]); i++)
 		{
@@ -365,7 +376,8 @@ void comm_recepteur(int num_recept, char* nom_machine, int port)
 			afficher_message_recepteur(message, atoi(message_recu), num_recept); 
 		}
 	}
-	
+	printf("Fin de la reception.\n");
+	// La bal ferme la connexion
 }
 
 // Crée un socket qui agit en temps que serveur de bal
@@ -382,13 +394,13 @@ void comm_bal(int port)
 		printf("Erreur lors de la création du socket\n");
 		exit(1);
 	}
-
 	// Création de l'adresse locale
 	memset((char*)&adr_local, 0, sizeof(adr_local));
 	adr_local.sin_family = AF_INET;
 	adr_local.sin_port = port;
 	adr_local.sin_addr.s_addr = INADDR_ANY;
 
+	// On lie l'adresse créée à la bal
 	if(bind(sock, (struct sockaddr*)&adr_local, sizeof(adr_local)) == -1)
 	{
 		printf("Echec du bind\n");
@@ -406,41 +418,56 @@ void comm_bal(int port)
 	int plg_adr_em = sizeof(padr_em);
 
 	listen(sock, NB_MAX);
+	
+	// Initialisation de la liste de bal vide
+	t_liste_bal* liste = initialiser_liste_bal();
+	printf("Liste de bal initialisee\n"); 
 
-	t_liste_bal* liste = initialiser_liste_bal(); 
-
+	// Boucle infinie : le serveur BAL ne peut se fermer 
+	// qu'avec un arrêt forcé du processus
 	while(1)
 	{
+		printf("En attente de connexion...\n");
+		// Acceptation de la demande de connexion
 		sock_bis = accept(sock, (struct sockaddr*)&padr_em, &plg_adr_em);
 		if (sock_bis == -1)
 		{
 			perror("Erreur : la connexion n'a pas ete acceptee"); 
 		}	
+		printf("Connexion acceptée.\n");
 
-		// Reception du message d'identification
-		char message_id[12];
-		memset(message_id, 0, 3*sizeof(int)); 
-		read(sock_bis, message_id, 3*sizeof(int)); 
-		
+		// Reception du message d'identification de la part du client
+		char message_id[16];
+		memset(message_id, 0, 17); 
+		read(sock_bis, message_id, 16); 
+		printf("Message identification lu avec succes : %s\n", message_id);
+
 		// Récupération des informations du message d'identification
-		int identite = (int)message_id[0]; 
-		int nb_messages_attendus = (int)message_id[4]; 
-		int lg_attendue = (int)message_id[8]; 
+		int identite;
+		int nb_messages_attendus;
+		int lg_attendue;
+		int num_recept;	
+		sscanf(message_id, "%4d%4d%4d%4d",&identite, &nb_messages_attendus, &lg_attendue, &num_recept); 
+
 
 		char message[TAILLE_MAX];
 		memset(message, 0, lg_attendue);
-
+		
 		if (identite == EMISSION)
 		{
+			printf("Le client est un EMETTEUR.\n");
+
 			int i;
 			int lg_effective;
-			//Verification de l'existence de la bal
-			if (!verifier_existance_bal(liste, identite))
+			
+			// Verification de l'existence de la bal
+			if (!verifier_existance_bal(liste, num_recept))
 			{
-				ajouter_bal(liste, identite);
+				ajouter_bal(liste, num_recept);
+				printf("La bal n'existe pas. Creation d'une nouvelle bal.\n");
 			}
 
-			t_bal* bal = recuperer_bal(liste, identite);
+			t_bal* bal = recuperer_bal(liste, num_recept);
 
 			for (i=0;i<nb_messages_attendus;i++)
 			{
@@ -449,7 +476,7 @@ void comm_bal(int port)
 				{
 					perror("Erreur read\n"); 
 				}
-				// Extraction des informations du message
+				// Extraction des informations du message et stockage de la lettre
 				if (bal->nb_lettres==0)
 				{
 					bal->premiere_lettre = nouvelle_lettre(message, lg_effective);
@@ -463,10 +490,9 @@ void comm_bal(int port)
 		}
 		else // Recepteur
 		{
-			if (verifier_existance_bal(liste, identite))
+			if (verifier_existance_bal(liste, num_recept))
 			{
-				t_bal* bal = recuperer_bal(liste, identite);
-
+				t_bal* bal = recuperer_bal(liste, num_recept);
 				// Envoi d'un message qui indique que la bal existe 
 				// et le nombre de lettres
 				char message_recept[TAILLE_MESSAGE_RECEPT];
@@ -482,7 +508,7 @@ void comm_bal(int port)
 					{
 						// Construction et envoi d'un message 
 						// qui indique la taille de la prochaine lettre
-						char* message_taille;
+						char message_taille[4];
 						memset(message_taille, 0, sizeof(int));
 						sprintf(&message_taille[0], "%d", p->lg);
 						write(sock_bis, message_taille, sizeof(int));
@@ -493,11 +519,15 @@ void comm_bal(int port)
 					}
 				}
 			}
+			else
+			{
+				printf("Erreur : aucune bal a ce nom\n");
+			}
+			// Ferme la connexion entre la bal et le client. N'arrete pas la bal
 			close(sock_bis);
 		}
 	}
-
 	close(sock);
 }
 
-
+//fin :)

@@ -120,16 +120,16 @@ veuillez indiquer étapes que vous avez validées
 
 [x] acceptation des demandes de connexions TCP et l'identification, par le traitement du PDU applicatif, du rôle "Récepteur" de l'application qui a initiée la demande de connexion est fonctionnelle
 
-[ ] vérification de la présence d'une BAL associée à un récepteur et renvoi de l'accès à la liste des messages disponibles pour le récepteur est fonctionnelle
+[X] vérification de la présence d'une BAL associée à un récepteur et renvoi de l'accès à la liste des messages disponibles pour le récepteur est fonctionnelle
 
 
 ### Pour les fonctionnalités du "Récepteur" (l'option "-e" de tsock) 
 veuillez indiquer les étapes que vous avez validées.
 
-[ ] demande de l'établissement de connexion TCP avec le serveur BAL est fonctionnelle
+[X] demande de l'établissement de connexion TCP avec le serveur BAL est fonctionnelle
 
-[ ] Transmission du PDU applicatif en charge de le déclarer en tant que récepteur  est fonctionnelle
+[X] Transmission du PDU applicatif en charge de le déclarer en tant que récepteur  est fonctionnelle
 
-[ ] prise en charge la réception et affichage de ses éventuels messages transmis par le serveur BAL jusqu'à la fermeture de la connexion TCP déclenchée par le serveur BAL est fonctionnelle
+[X] prise en charge la réception et affichage de ses éventuels messages transmis par le serveur BAL jusqu'à la fermeture de la connexion TCP déclenchée par le serveur BAL est fonctionnelle
 
-[ ] parcours des messages d'une BAL opérationnel
+[X] parcours des messages d'une BAL opérationnel
