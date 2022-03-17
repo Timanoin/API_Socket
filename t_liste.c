@@ -62,13 +62,23 @@ void ajouter_lettre(t_bal* bal, char* message, int lg)
 {
     t_lettre* nv_lettre = nouvelle_lettre(message,lg);
 
-    t_lettre* p = bal->premiere_lettre; 
-    while (p->lettre_suivante != NULL)
+    if (!bal->nb_lettres)
     {
-        p = p->lettre_suivante; 
-    }
-    p->lettre_suivante = nv_lettre;
-    bal->nb_lettres++;   
+        // S'il n'y a aucune lettre, elle devient la premiere
+        bal->premiere_lettre = nv_lettre;    
+    } 
+    else
+    {
+        t_lettre* p = bal->premiere_lettre;
+        while(p->lettre_suivante != NULL)
+        {    
+            p = p->lettre_suivante;
+        } 
+        // A ce moment, p pointe vers la dernière lettre de la liste
+        p->lettre_suivante = nv_lettre;
+    } 
+    
+    bal->nb_lettres++;  
 }
 
 t_liste_bal* initialiser_liste_bal(void)
@@ -78,3 +88,26 @@ t_liste_bal* initialiser_liste_bal(void)
     liste_bal->nb_bal = 0; 
     return liste_bal;
 }
+
+
+// Affiche le contenu de chaque lettre, de chaque bal de la liste.
+void afficher_structure_bal(t_liste_bal* liste)
+{
+    int i,j;
+    
+    t_bal* bal = liste->premiere_bal;
+    for (i=0; i<liste->nb_bal;i++)
+    {
+        printf("BAL %d:\n", bal->num_recepteur);
+        t_lettre* lettre = bal->premiere_lettre;
+        for (j=0; j<bal->nb_lettres;j++)
+        {
+            printf("%s\n", lettre->message);
+            lettre=lettre->lettre_suivante;
+        } 
+        bal=bal->bal_suivante;
+        printf("\n");
+    } 
+}
+
+

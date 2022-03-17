@@ -39,4 +39,7 @@ void ajouter_lettre(t_bal* bal, char* message, int lg);
 
 t_liste_bal* initialiser_liste_bal(void);
 
+// Affiche le contenu de chaque lettre, de chaque bal de la liste.
+void afficher_structure_bal(t_liste_bal* liste);
+
 #endif 

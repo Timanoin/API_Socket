@@ -31,6 +31,9 @@ données du réseau */
 #define EMISSION 0
 #define RECEPTION 1
 #define BAL 2
+#define DEBUG 0
+
+
 
 
 // Retourne la longueur d'un nombre (nombre de caractères nécessaires à son écriture)
@@ -131,17 +134,17 @@ void main (int argc, char **argv)
 
 	if (option == EMISSION)
 	 {
-		printf("On est en mode emission\n");
+		printf("* Mode : client EMISSION\n\n");
 		comm_emetteur(num_recept, argv[argc-2], htons(atoi(argv[argc-1])), lg_message, nb_messages);	
 	 }
 	else if (option == RECEPTION)
 	{
-		printf("On est en mode reception\n");
+		printf("* Mode : client RECEPTION\n\n");
 		comm_recepteur(num_recept, argv[argc-2], htons(atoi(argv[argc-1])));	
 	}
 	else if (option == BAL)
 	{
-		printf("On est en mode serveur boite aux lettres\n");
+		printf("* Mode : serveur BOITE AUX LETTRES\n\n");
 		comm_bal(htons(atoi(argv[argc-1])));
 	}
 	else
@@ -200,41 +203,31 @@ void message_erreur(void)
 // Affichage en mode recepteur
 void afficher_message_recepteur (char *message, int lg, int numero) 
 {
-	int i;
-	printf("RECEPTION : Récupération de la lettre par le recepteur %d (%d) [", numero, lg);
-	for (i=0 ; i<lg ; i++) 
-	{
-		printf("%c", message[i]) ; 
-	}
-	printf("]\n");
+	printf("* RECEPTION : Récupération de la lettre par le recepteur %d (%d) \n[%s]\n", numero, lg, message);
 }
 
 // Affichage en mode emetteur
-void afficher_message_emetteur (char *message, int lg, int num_recept, int numero) {
-	int i;
-	printf("SOURCE : Envoi de la lettre n°%d pour le recepteur n°%d[", numero+1, num_recept);
-	for (i=0 ; i<lg ; i++) 
-	{
-		printf("%c", message[i]) ; 
-	}
-	printf("]\n");
+void afficher_message_emetteur (char *message, int lg, int num_recept, int numero) 
+{
+	printf("* SOURCE : Envoi de la lettre n°%d pour le recepteur n°%d \n[%s]\n", numero+1, num_recept,message);
 }
+
+// Affichage en mode BAL
+void afficher_message_bal_stockage (char *message, int num_recept, int numero)
+{
+	printf("* PUITS : Stockage de la lettre n°%d pour le recepteur n°%d \n[%s]\n", numero, num_recept,message);
+}
+
 
 // Construit un message d'identification
 void construire_message_id(char* message_id, int option, int nb, int lg, int num_recept)
 {
 	memset(message_id, 0, 4*sizeof(int));
 	sprintf(message_id, "%4d%4d%4d%4d",option,nb,lg,num_recept);
-	printf("Contenu du message d'identification : %s\n", message_id);
-}
-
-// Construit un premier message adressé au recepteur lui indiquant 
-// si la bal existe et le nombre de messages
-void construire_message_recepteur(char* message_recept, int existance_bal, int nb_lettres)
-{
-	memset(message_recept, 0, 2*sizeof(int));
-	sprintf(&message_recept[0],"%d",existance_bal);
-	sprintf(&message_recept[sizeof(int)], "%d",nb_lettres);
+	printf("* Envoi du message d'identification...\n");
+	#if DEBUG	
+	printf("d-Contenu du message d'identification envoye : %s\n", message_id);
+	#endif	
 }
 
 
@@ -253,7 +246,7 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock == -1)
 	{
-		printf("Erreur lors de la création du socket\n");
+		printf("* Erreur lors de la creation du socket.\n");
 		exit(1);
 	}
 
@@ -265,7 +258,7 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 	struct hostent* hp;
 	if ((hp = gethostbyname(nom_machine)) == NULL)
 	{
-		printf("Erreur gethostbyname \n");
+		printf("* Erreur lors de la recuperation de l'adresse IP.\n");
 		exit(1);
 	}
 	memcpy((char*)&(adr_dest.sin_addr.s_addr), hp->h_addr, hp->h_length);
@@ -274,7 +267,7 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 	int connexion = connect(sock, (struct sockaddr *)&adr_dest, sizeof(adr_dest)); 
 	if (connexion == -1)
 	{
-		printf("Erreur de connexion\n");
+		printf("* Erreur lors de la connexion.\n");
 		exit(1);
 	}
 
@@ -296,7 +289,7 @@ void comm_emetteur(int num_recept, char* nom_machine, int port, int lg, int nb)
 		write(sock, message, lg);
 		afficher_message_emetteur(message, lg, num_recept, i);
 	}
-	printf("Fin de l'emission.\n");
+	printf("\n* Fin de l'emission des messages.\n* Fermeture de la connexion par le serveur.\n");
 	// La fermeture de la connexion est gérée par la bal
 }
 
@@ -313,7 +306,7 @@ void comm_recepteur(int num_recept, char* nom_machine, int port)
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock == -1)
 	{
-		printf("Erreur lors de la création du socket\n");
+		printf("* Erreur lors de la creation du socket.\n");
 		exit(1);
 	}
 
@@ -325,7 +318,7 @@ void comm_recepteur(int num_recept, char* nom_machine, int port)
 	struct hostent* hp;
 	if ((hp = gethostbyname(nom_machine)) == NULL)
 	{
-		printf("Erreur gethostbyname \n");
+		printf("* Erreur lors de la recuperation de l'adresse IP.\n");
 		exit(1);
 	}
 	memcpy((char*)&(adr_dest.sin_addr.s_addr), hp->h_addr, hp->h_length);
@@ -334,7 +327,7 @@ void comm_recepteur(int num_recept, char* nom_machine, int port)
 	int connexion = connect(sock, (struct sockaddr *)&adr_dest, sizeof(adr_dest)); 
 	if (connexion == -1)
 	{
-		printf("Erreur de connexion\n");
+		printf("* Erreur lors de la connexion.\n");
 		exit(1);
 	}
 
@@ -344,39 +337,49 @@ void comm_recepteur(int num_recept, char* nom_machine, int port)
 	write(sock, message_id, 4*sizeof(int));
 
 	// Reception du message indiquant si la bal existe
-	//et le nombre de lettres
+	// et le nombre de lettres
 	char message_info[8];
-	memset(message_info, 0, 2*sizeof(int)); 
-	read(sock, message_info, 2*sizeof(int)); 
+	memset(message_info, 0, 9); 
+	read(sock, message_info, 8);
+	#if DEBUG	
+	printf("d-Reception message etat de la boite aux lettres : %s\n", message_info);
+	#endif
 
-	if (atoi(&message_info[0]) == 0)
+	int existance_bal;
+	int nb_lettres;
+	sscanf(message_info, "%4d%4d", &existance_bal, &nb_lettres); 
+
+	if (!existance_bal)
 	{
 		// La bal n'existe pas
-		printf("La boite aux lettres n'existe pas.\n");
+		printf("* La boite aux lettres n'existe pas.\n");
 	}
-	else if (atoi(&message_info[4]) == 0)
+	else if (!nb_lettres)
 	{
 		// La bal existe mais pointe vers NULL
-		printf("Vous n'avez aucun message. :(\n");
+		printf("* Vous n'avez aucun message.\n");
 	}
 	else
 	{
 		// La bal existe et contient au moins une lettre
 		// On recoit le nombre de lettres indiquées dans le message_info
 		int i; 
-		for (i=0; i<atoi(&message_info[4]); i++)
+		for (i=0; i<nb_lettres; i++)
 		{
-			char message_recu[4];
-			memset(message_recu, 0, sizeof(int)); 
-			read(sock, message_recu, sizeof(int)); 
+			char message_taille_lettre[4];
+			memset(message_taille_lettre, 0, 5); 
+			read(sock, message_taille_lettre, 4); 
+
+			int taille;
+			sscanf(message_taille_lettre, "%4d", &taille);
 
 			char message[TAILLE_MAX];
-			memset(message, 0, atoi(message_recu));
-			read(sock, message, atoi(message_recu));
-			afficher_message_recepteur(message, atoi(message_recu), num_recept); 
+			memset(message, 0, taille);
+			read(sock, message, taille);
+			afficher_message_recepteur(message, taille, num_recept); 
 		}
 	}
-	printf("Fin de la reception.\n");
+	printf("\n* Fin de la reception des messages.\n* Fermeture de la connexion par le serveur.\n");
 	// La bal ferme la connexion
 }
 
@@ -391,7 +394,7 @@ void comm_bal(int port)
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock == -1)
 	{
-		printf("Erreur lors de la création du socket\n");
+		printf("* Erreur lors de la création du socket\n");
 		exit(1);
 	}
 	// Création de l'adresse locale
@@ -403,7 +406,7 @@ void comm_bal(int port)
 	// On lie l'adresse créée à la bal
 	if(bind(sock, (struct sockaddr*)&adr_local, sizeof(adr_local)) == -1)
 	{
-		printf("Echec du bind\n");
+		printf("* Echec lors de la liaison de l'adresse du socket a la boite aux lettres.\n");
 		exit(1);
 	}
 
@@ -421,26 +424,34 @@ void comm_bal(int port)
 	
 	// Initialisation de la liste de bal vide
 	t_liste_bal* liste = initialiser_liste_bal();
-	printf("Liste de bal initialisee\n"); 
+	printf("* Initialisation de la liste de boite aux lettres.\n\n"); 
 
 	// Boucle infinie : le serveur BAL ne peut se fermer 
 	// qu'avec un arrêt forcé du processus
 	while(1)
 	{
-		printf("En attente de connexion...\n");
+		printf("* En attente d'une connexion entrante...\n");
+
+		#if DEBUG	
+		afficher_structure_bal(liste);
+		#endif
+			
 		// Acceptation de la demande de connexion
 		sock_bis = accept(sock, (struct sockaddr*)&padr_em, &plg_adr_em);
 		if (sock_bis == -1)
 		{
-			perror("Erreur : la connexion n'a pas ete acceptee"); 
+			perror("* Erreur : la connexion n'a pas ete acceptee."); 
 		}	
-		printf("Connexion acceptée.\n");
+		printf("* Une connexion entrante a ete acceptee.\n");
 
 		// Reception du message d'identification de la part du client
 		char message_id[16];
 		memset(message_id, 0, 17); 
 		read(sock_bis, message_id, 16); 
+
+		#if DEBUG
 		printf("Message identification lu avec succes : %s\n", message_id);
+		#endif
 
 		// Récupération des informations du message d'identification
 		int identite;
@@ -448,14 +459,10 @@ void comm_bal(int port)
 		int lg_attendue;
 		int num_recept;	
 		sscanf(message_id, "%4d%4d%4d%4d",&identite, &nb_messages_attendus, &lg_attendue, &num_recept); 
-
-
-		char message[TAILLE_MAX];
-		memset(message, 0, lg_attendue);
 		
 		if (identite == EMISSION)
 		{
-			printf("Le client est un EMETTEUR.\n");
+			printf("* Le client est un EMETTEUR.\n");
 
 			int i;
 			int lg_effective;
@@ -464,68 +471,80 @@ void comm_bal(int port)
 			if (!verifier_existance_bal(liste, num_recept))
 			{
 				ajouter_bal(liste, num_recept);
-				printf("La bal n'existe pas. Creation d'une nouvelle bal.\n");
-			}
-
+				printf("* La bal du recepteur souhaite n'existe pas.\n* Creation d'une nouvelle bal.\n");
+			}	
+			
+			// Reception des lettres et stockage
+			char message[TAILLE_MAX];
+			memset(message, 0, lg_attendue);
 			t_bal* bal = recuperer_bal(liste, num_recept);
-
 			for (i=0;i<nb_messages_attendus;i++)
-			{
+			{	
+				// Lecture du message
 				lg_effective = read(sock_bis, message, lg_attendue);
 				if (lg_effective==-1)
 				{
-					perror("Erreur read\n"); 
+					perror("* Erreur lors de la lecture.\n"); 
 				}
-				// Extraction des informations du message et stockage de la lettre
-				if (bal->nb_lettres==0)
-				{
-					bal->premiere_lettre = nouvelle_lettre(message, lg_effective);
-					bal->nb_lettres = 1;
-				}
-				else
-				{
-					ajouter_lettre(bal, message, lg_effective);
-				}
+				afficher_message_bal_stockage(message, num_recept, i+1);
+
+				// Reservation de mémoire pour la lettre
+				char *contenu_lettre = (char*) malloc(lg_effective+1);
+				strcpy(contenu_lettre, message);
+
+				// Stockage de la lettre dans la bal
+				ajouter_lettre(bal, contenu_lettre, lg_effective);
 			}
 		}
 		else // Recepteur
 		{
+			printf("* Le client est un RECEPTEUR.\n");
 			if (verifier_existance_bal(liste, num_recept))
 			{
 				t_bal* bal = recuperer_bal(liste, num_recept);
 				// Envoi d'un message qui indique que la bal existe 
 				// et le nombre de lettres
-				char message_recept[TAILLE_MESSAGE_RECEPT];
-				construire_message_recepteur(message_recept, 1, bal->nb_lettres);
+				char message_recept[9];
+				memset(message_recept, 0, 9);
+				sprintf(message_recept, "%4d%4d", 1, bal->nb_lettres);
 				write(sock_bis, message_recept, 2*sizeof(int));
 
-				int i;
-				for (i=0;i<bal->nb_lettres;i++)
-				{
-					t_lettre* p = bal->premiere_lettre; 
-					// Boucle d'envoi des lettres stockées dans la bal
-					while (p != NULL)
-					{
-						// Construction et envoi d'un message 
-						// qui indique la taille de la prochaine lettre
-						char message_taille[4];
-						memset(message_taille, 0, sizeof(int));
-						sprintf(&message_taille[0], "%d", p->lg);
-						write(sock_bis, message_taille, sizeof(int));
+				#if DEBUG
+				printf("d-Message contenant l'etat de la bal : %s\n", message_recept);
+				#endif
 
-						//Envoi de la lettre
-						write(sock_bis, p->message, p->lg);
-						p = p->lettre_suivante; 
-					}
+				t_lettre* p = bal->premiere_lettre; 
+				// Boucle d'envoi des lettres stockées dans la bal
+				while (p != NULL)
+				{
+					// Construction et envoi d'un message 
+					// qui indique la taille de la prochaine lettre
+					char message_taille[4];
+					memset(message_taille, 0, 5);
+					sprintf(message_taille, "%d", p->lg);
+					write(sock_bis, message_taille, sizeof(int));
+
+					// Envoi de la lettre
+					write(sock_bis, p->message, p->lg);
+
+					// Passage a la lettre suivante
+					p = p->lettre_suivante; 
 				}
+				printf("* Toutes les lettres ont ete envoyees au recepteur avec succes.\n");
 			}
 			else
 			{
-				printf("Erreur : aucune bal a ce nom\n");
+				printf("* Erreur : aucune bal n'appartient a ce recepteur.\n");
+				// Envoi d'un message qui indique que la bal n'existe pas
+				char message_recept[9];
+				memset(message_recept, 0, 9);
+				sprintf(message_recept, "%4d%4d", 0, 0);
+				write(sock_bis, message_recept, 2*sizeof(int));
 			}
-			// Ferme la connexion entre la bal et le client. N'arrete pas la bal
-			close(sock_bis);
 		}
+		// Ferme la connexion entre la bal et le client. N'arrete pas la bal
+		printf("* Fermeture de la connexion avec le client.\n");
+		close(sock_bis);
 	}
 	close(sock);
 }
