@@ -132,4 +132,4 @@ veuillez indiquer les étapes que vous avez validées.
 
 [X] prise en charge la réception et affichage de ses éventuels messages transmis par le serveur BAL jusqu'à la fermeture de la connexion TCP déclenchée par le serveur BAL est fonctionnelle
 
-[X] parcours des messages d'une BAL opérationnel
+[x] parcours des messages d'une BAL opérationnel
